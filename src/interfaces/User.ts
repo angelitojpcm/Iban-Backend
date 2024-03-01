@@ -2,10 +2,12 @@ import { Rol } from "./Rol";
 
 interface IUser {
     id: number;
-    name: string;
+    full_name: string;
     email: string;
+    photo: string;
+    phone: string;
     password: string;
-    rol: Rol,
+    Rol: Rol,
     created_at: string;
 }
 

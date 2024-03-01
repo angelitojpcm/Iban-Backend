@@ -1,33 +1,47 @@
-// En AuthController.ts
 import { Request, Response } from "express";
-import { IUser } from "../../interfaces/User";
 import Controller from "../../core/Controller";
+import UserCollection from "../resources/User/UserC";
+import { Rol, Users } from "../models";
 
 class AuthController extends Controller {
   constructor() {
     super();
     this.bindMethods(this);
-    this.init();
-  }
-
-  private async init() {
-    try {
-      this.model = await this.loadModel("Users");
-    } catch (error) {
-      console.error(error);
-    }
   }
 
   async login(req: Request, res: Response) {
     let { email, password } = req.body;
 
-    let user: IUser[] = await this.model.all(email);
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Faltan campos obligatorios",
+        fields: ["email", "password"],
+      });
+    }
 
-    if (user.length === 0) {
+    let user = await Users.findOne({
+      where: { email },
+      include: [Rol],
+    });
+
+    if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    this.filter(res, user[0], { structure: { user: true } }, 200);
+    let data = user.dataValues;
+    console.log(data);
+    // Validate password
+    let valid = await this.comparePassword(password, data.password);
+
+    if (!valid) {
+      return res.status(401).json({ message: "Contraseña incorrecta" });
+    }
+
+    let token = await this.generateToken(data);
+
+    let resp = UserCollection.toArray([data]);
+
+    return this.respondWhitToken(res, token, resp);
   }
 }
 export default new AuthController();

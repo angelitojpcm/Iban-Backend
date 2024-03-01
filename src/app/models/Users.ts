@@ -1,70 +1,59 @@
-import { query } from "../../core/Database";
-import Model from "../../core/Model";
-import { IUser } from "../../interfaces/User";
+import { Sequelize, DataTypes, Model } from "sequelize";
+import { conn } from "../../core/Database";
 
 class Users extends Model {
-  protected table = "users";
-  protected filiable = [
-    "name",
-    "email",
-    "photo",
-    "rol_id",
-    "password",
-    "created_at",
-    "updated_at",
-  ];
-
-  /**
-   * Select all users or by email
-   * @param email
-   * @returns
-   */
-  all(email: string | null = null): Promise<IUser[]> {
-    return new Promise((resolve, reject) => {
-      let queryStr = `SELECT * FROM ${this.table}`;
-      let params = [];
-
-      if (email) {
-        queryStr += " WHERE email = ?";
-        params.push(email);
-      }
-
-      query(queryStr, params)
-        .then((rows) => {
-          resolve(rows);
-        })
-        .catch((err) => reject(err));
-    });
-  }
-
-  /**
-   * Select user by id
-   * @param id
-   * @returns
-   */
-  find(id: number) {
-    return new Promise((resolve, reject) => {
-      query(`SELECT * FROM ${this.table} WHERE id = ?`, [id])
-        .then((rows) => resolve(rows[0]))
-        .catch((err) => reject(err));
-    });
-  }
-
-  create(data: any) {
-    return new Promise((resolve, reject) => {
-      query(`INSERT INTO ${this.table} SET ?`, data)
-        .then((result) => resolve(result))
-        .catch((err) => reject(err));
-    });
-  }
-
-  update(id: number, data: any) {
-    return new Promise((resolve, reject) => {
-      query(`UPDATE ${this.table} SET ? WHERE id = ?`, [data, id])
-        .then((result) => resolve(result))
-        .catch((err) => reject(err));
-    });
-  }
+  public id!: number;
+  public full_name!: string;
+  public email!: string;
+  public photo!: string;
+  public phone!: string;
+  public password!: string;
+  public rol_id!: number;
+  public created_at!: Date;
 }
+
+Users.init(
+  {
+    id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    full_name: {
+      type: new DataTypes.STRING(200),
+      allowNull: false,
+    },
+    email: {
+      type: new DataTypes.STRING(100),
+      allowNull: false,
+    },
+    photo: {
+      type: new DataTypes.STRING(150),
+      allowNull: false,
+    },
+    phone: {
+      type: new DataTypes.STRING(20),
+      allowNull: false,
+    },
+    password: {
+      type: new DataTypes.STRING(255),
+      allowNull: false,
+    },
+    rol_id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 1,
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+  },
+  {
+    tableName: "users",
+    sequelize: conn,
+    timestamps: false,
+  }
+);
 
 export default Users;

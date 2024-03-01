@@ -1,64 +1,14 @@
 import { Request, Response } from "express";
-import * as fs from "fs";
-import * as path from "path";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 class Controller {
-  protected model: any;
-  protected fileable: string[] = [];
-  [key: string]: any; // Agrega una firma de índice
-
   constructor() {}
 
   /**
-   * Retorna un objeto con las llaves especificadas
-   * @param res -> Response
-   * @param data -> Datos a filtrar
-   * @param options -> Opciones de filtrado
-   * @param code -> Código de respuesta
+   * Instancia los métodos de la clase en el contexto de la instancia
+   * @param instance
    */
-  async filter(
-    res: Response,
-    data: any,
-    options: { structure: any },
-    code: number = 200
-  ) {
-    try {
-      let filteredData: any = Array.isArray(data)
-        ? data.map((item) => {
-            let filteredItem: any = {};
-            for (const key of this.fileable) {
-              // Usa this.fileable
-              filteredItem[key] = item[key];
-            }
-            return filteredItem;
-          })
-        : this.filterObject(data);
-
-      // Aplica la estructura a los datos filtrados
-      let structuredData: any = {};
-      for (const key in options.structure) {
-        structuredData[key] =
-          options.structure[key] === true
-            ? filteredData
-            : options.structure[key];
-      }
-
-      res.status(code).json(structuredData);
-    } catch (error) {
-      // Handle errors appropriately
-      console.error(error);
-      res.status(500).json({ message: "Error en el servidor" });
-    }
-  }
-
-  filterObject(data: any) {
-    let filteredItem: any = {};
-    for (const key of this.fileable) {
-      filteredItem[key] = data[key];
-    }
-    return filteredItem;
-  }
-
   bindMethods(instance: any) {
     for (const key of Object.getOwnPropertyNames(
       instance.constructor.prototype
@@ -69,23 +19,77 @@ class Controller {
     }
   }
 
-  loadModel(name?: string) {
+  /**
+   * Compara una contraseña con un hash
+   * @param password
+   * @param hash
+   * @returns
+   */
+  async comparePassword(password: string, hash: string) {
     return new Promise((resolve, reject) => {
-      const modelName = name ? name : this.constructor.name;
-      const modelPath = path.join(
-        __dirname,
-        "../app/models",
-        modelName + ".ts"
-      ); // Añade la extensión .ts
+      bcrypt.compare(password, hash, (err, same) => {
+        if (err) {
+          reject(err);
+        }
+        resolve(same);
+      });
+    });
+  }
 
-      if (fs.existsSync(modelPath)) {
-        const Model = require(modelPath).default;
-        this.model = new Model();
-        this.fileable = this.model.getFiliable();
-        resolve(this.model);
-      } else {
-        reject(new Error("Model not found: " + modelName));
-      }
+  /**
+   * Encripta una contraseña
+   * @param password
+   * @returns
+   */
+  async encryptPassword(password: string) {
+    return new Promise((resolve, reject) => {
+      bcrypt.hash(password, 10, (err, hash) => {
+        if (err) {
+          reject(err);
+        }
+        resolve(hash);
+      });
+    });
+  }
+
+  /**
+   * Genera un token usando la información del usuario y JWT
+   * @param user
+   */
+  async generateToken(user: any) {
+    const key = process.env.JWT_KEY || "default-key";
+    const payload = { ...user };
+    const token = jwt.sign(payload, key, { expiresIn: "1h" });
+
+    //Decodificar token
+
+    const decoded: any = jwt.verify(token, key);
+    const time = decoded.exp - decoded.iat;
+
+    return {
+      access_token: token,
+      token_type: "bearer",
+      expires_in: time,
+    };
+  }
+
+  /**
+   * Retorna una respuesta con un token
+   * @param res -> Response
+   * @param token -> Token a enviar
+   * @param time -> Tiempo de expiración del token
+   * @param data -> Datos a enviar
+   * @param code -> Código de respuesta
+   */
+  async respondWhitToken(
+    res: Response,
+    token: object,
+    data: object,
+    code: number = 200
+  ) {
+    res.status(code).json({
+      ...token,
+      ...data,
     });
   }
 }
